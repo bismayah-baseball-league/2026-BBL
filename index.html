@@ -41,6 +41,14 @@
   button{font-family:inherit;cursor:pointer;}
   ::selection{background:var(--gold); color:var(--navy-deep);}
 
+  #sync-banner{
+    position:fixed; top:0; left:0; right:0; z-index:300;
+    background:var(--gold-deep); color:#fff; text-align:center;
+    font-size:12.5px; font-weight:700; padding:6px 12px;
+    transform:translateY(-100%); transition:transform .25s ease;
+  }
+  #sync-banner.show{transform:translateY(0);}
+
   /* ---------- HERO ---------- */
   .hero{
     position:relative;
@@ -641,6 +649,8 @@
 </head>
 <body>
 
+<div id="sync-banner"></div>
+
 <section class="hero">
   <div class="hero-inner">
     <div class="hero-title-row">
@@ -912,6 +922,78 @@
 <script>
 (function(){
   "use strict";
+
+  // ---------- CLOUD SYNC (Cloudflare Worker + KV) ----------
+  var WORKER_BASE = 'https://bbl-api.chogak1449.workers.dev';
+  var SYNC_KEYS = ['kbo_batters','kbo_pitchers','kbo_teams','kbo_batter_profiles','kbo_pitcher_profiles','kbo_notices','kbo_game_results','kbo_lineups'];
+
+  function remoteFetch(key){
+    return fetch(WORKER_BASE + '/' + key, { cache:'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; });
+  }
+  function remotePut(key, valueObj){
+    return fetch(WORKER_BASE + '/' + key, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'X-Admin-Key': ADMIN_PASSWORD },
+      body: JSON.stringify(valueObj)
+    }).then(function(r){
+      if(!r.ok) console.warn('서버 동기화 실패:', key, r.status);
+      return r.ok;
+    }).catch(function(err){
+      console.warn('서버 동기화 실패(네트워크):', key, err);
+      return false;
+    });
+  }
+
+  function showSyncBanner(text){
+    var b = document.getElementById('sync-banner');
+    if(!b) return;
+    b.textContent = text;
+    b.classList.add('show');
+  }
+  function hideSyncBanner(){
+    var b = document.getElementById('sync-banner');
+    if(!b) return;
+    b.classList.remove('show');
+  }
+
+  function reloadStateFromLocalStorage(){
+    try{ state.batters = JSON.parse(localStorage.getItem('kbo_batters') || '[]'); }catch(e){}
+    try{ state.pitchers = JSON.parse(localStorage.getItem('kbo_pitchers') || '[]'); }catch(e){}
+    try{ state.teams = JSON.parse(localStorage.getItem('kbo_teams') || '[]'); }catch(e){}
+    try{ state.notices = JSON.parse(localStorage.getItem('kbo_notices') || '[]'); }catch(e){}
+    try{ state.gameResults = JSON.parse(localStorage.getItem('kbo_game_results') || '[]'); }catch(e){}
+    try{ state.lineups = JSON.parse(localStorage.getItem('kbo_lineups') || '[]'); }catch(e){}
+  }
+
+  function renderEverything(){
+    Object.keys(SCHEMA).forEach(renderTable);
+    renderLineups();
+    renderCalendar();
+    renderNotices();
+    renderRoster();
+    renderGameResults();
+    renderLeagueLeaders();
+  }
+
+  function syncFromServer(){
+    showSyncBanner('서버와 동기화 중…');
+    var promises = SYNC_KEYS.map(function(k){
+      return remoteFetch(k).then(function(val){
+        if(val !== null && val !== undefined){
+          localStorage.setItem(k, JSON.stringify(val));
+        }
+      });
+    });
+    return Promise.all(promises).then(function(){
+      reloadStateFromLocalStorage();
+      renderEverything();
+      hideSyncBanner();
+    }).catch(function(){
+      hideSyncBanner();
+    });
+  }
 
   // ---------- ADMIN GATE ----------
   var ADMIN_PASSWORD = '2026';
@@ -1210,6 +1292,7 @@
 
   function save(tab){
     localStorage.setItem(STORE_KEYS[tab], JSON.stringify(state[tab]));
+    remotePut(STORE_KEYS[tab], state[tab]);
   }
 
   // ---------- TABS ----------
@@ -1468,6 +1551,7 @@
   function saveProfiles(tab, profiles){
     var storeKey = tab === 'batters' ? STORE_KEYS.batterProfiles : STORE_KEYS.pitcherProfiles;
     localStorage.setItem(storeKey, JSON.stringify(profiles));
+    remotePut(storeKey, profiles);
   }
 
   function renderTable(tab){
@@ -2126,7 +2210,10 @@
     return [];
   }
 
-  function saveLineups(){ localStorage.setItem(STORE_KEYS.lineups, JSON.stringify(state.lineups)); }
+  function saveLineups(){
+    localStorage.setItem(STORE_KEYS.lineups, JSON.stringify(state.lineups));
+    remotePut(STORE_KEYS.lineups, state.lineups);
+  }
 
   function getActiveLineup(){
     return state.lineups.filter(function(l){ return l.id === state.activeLineupId; })[0] || null;
@@ -2749,7 +2836,10 @@
       return raw ? JSON.parse(raw) : [];
     }catch(e){ return []; }
   }
-  function saveNotices(){ localStorage.setItem(STORE_KEYS.notices, JSON.stringify(state.notices)); }
+  function saveNotices(){
+    localStorage.setItem(STORE_KEYS.notices, JSON.stringify(state.notices));
+    remotePut(STORE_KEYS.notices, state.notices);
+  }
 
   state.notices = loadNotices();
 
@@ -2953,7 +3043,10 @@
       return raw ? JSON.parse(raw) : [];
     }catch(e){ return []; }
   }
-  function saveGameResults(){ localStorage.setItem(STORE_KEYS.gameResults, JSON.stringify(state.gameResults)); }
+  function saveGameResults(){
+    localStorage.setItem(STORE_KEYS.gameResults, JSON.stringify(state.gameResults));
+    remotePut(STORE_KEYS.gameResults, state.gameResults);
+  }
   state.gameResults = loadGameResults();
 
   function populateGameResultTeamSelects(){
@@ -3088,6 +3181,8 @@
   renderRoster();
   renderGameResults();
   renderLeagueLeaders();
+
+  syncFromServer();
 
 })();
 </script>
