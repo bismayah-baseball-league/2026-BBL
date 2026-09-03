@@ -116,7 +116,7 @@
   .tab-btn:hover{color:var(--ink);}
   .tab-btn.active{color:var(--gold-deep); border-bottom-color:var(--gold);}
   .admin-lock-btn{
-    margin-left:auto; align-self:center;
+    align-self:center;
     background:var(--bg-soft); border:1px solid var(--line); border-radius:999px;
     color:var(--ink-soft); font-size:12px; font-weight:700;
     padding:6px 14px; white-space:nowrap; flex-shrink:0;
@@ -125,6 +125,7 @@
   .admin-lock-btn.unlocked{
     background:linear-gradient(180deg, var(--gold-pale), var(--gold)); color:var(--navy-deep); border-color:transparent;
   }
+  .backup-btn{margin-left:auto;}
 
   /* ---------- MAIN ---------- */
   main{padding:40px 6vw 100px;}
@@ -662,6 +663,9 @@
   <button class="tab-btn" data-tab="batters">타자 기록</button>
   <button class="tab-btn" data-tab="pitchers">투수 기록</button>
   <button class="tab-btn" data-tab="lineups">라인업</button>
+  <button type="button" class="admin-lock-btn backup-btn" id="backup-btn" title="모든 기록을 파일로 저장">⬇ 백업</button>
+  <button type="button" class="admin-lock-btn restore-btn" id="restore-btn" title="백업 파일에서 복원">⬆ 복원</button>
+  <input type="file" id="restore-file-input" accept="application/json" style="display:none;">
   <button type="button" class="admin-lock-btn" id="admin-lock-btn" title="관리자 모드">🔒 관리자</button>
 </nav>
 
@@ -957,10 +961,83 @@
     updateAdminLockUI();
   }
 
+  // ---------- BACKUP / RESTORE (전체 데이터 백업/복원) ----------
+  var BACKUP_KEYS = [
+    'kbo_batters','kbo_pitchers','kbo_teams',
+    'kbo_batter_profiles','kbo_pitcher_profiles',
+    'kbo_notices','kbo_game_results','kbo_lineups',
+    'kbo_teams_seeded','kbo_batters_seeded','kbo_pitchers_seeded','kbo_lineups_seeded'
+  ];
+
+  function exportBackup(){
+    var data = {};
+    BACKUP_KEYS.forEach(function(k){
+      var v = localStorage.getItem(k);
+      if(v !== null) data[k] = v;
+    });
+    var payload = { exportedAt: new Date().toISOString(), data: data };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = 'BBL_backup_' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function importBackup(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var parsed;
+      try{
+        parsed = JSON.parse(e.target.result);
+      }catch(err){
+        alert('백업 파일을 읽는 중 문제가 발생했습니다.');
+        return;
+      }
+      var data = parsed && parsed.data ? parsed.data : parsed;
+      if(!data || typeof data !== 'object'){
+        alert('올바른 백업 파일이 아닙니다.');
+        return;
+      }
+      if(!confirm('현재 브라우저에 저장된 모든 기록을 백업 파일 내용으로 덮어씁니다. 계속할까요?')) return;
+      Object.keys(data).forEach(function(k){
+        if(BACKUP_KEYS.indexOf(k) !== -1){
+          localStorage.setItem(k, data[k]);
+        }
+      });
+      alert('복원이 완료되었습니다. 페이지를 새로고침합니다.');
+      location.reload();
+    };
+    reader.readAsText(file);
+  }
+
+  var backupBtn = document.getElementById('backup-btn');
+  if(backupBtn){
+    backupBtn.addEventListener('click', function(){ exportBackup(); });
+  }
+  var restoreBtn = document.getElementById('restore-btn');
+  var restoreFileInput = document.getElementById('restore-file-input');
+  if(restoreBtn && restoreFileInput){
+    restoreBtn.addEventListener('click', function(){
+      if(!ensureAdmin()) return;
+      restoreFileInput.value = '';
+      restoreFileInput.click();
+    });
+    restoreFileInput.addEventListener('change', function(){
+      var file = restoreFileInput.files[0];
+      if(!file) return;
+      importBackup(file);
+    });
+  }
+
   var STORE_KEYS = {
     batters:'kbo_batters', pitchers:'kbo_pitchers', teams:'kbo_teams',
     batterProfiles:'kbo_batter_profiles', pitcherProfiles:'kbo_pitcher_profiles',
-    notices:'kbo_notices', gameResults:'kbo_game_results'
+    notices:'kbo_notices', gameResults:'kbo_game_results', lineups:'kbo_lineups'
   };
 
   var SCHEMA = {
@@ -1999,7 +2076,6 @@
   });
 
   // ---------- LINEUPS ----------
-  var LINEUP_KEY = 'kbo_lineups';
   var POSITION_OPTIONS = ['-','투수','포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','DH'];
   var FIELD_SLOTS = [
     {pos:'중견수', x:49.7, y:40.4},
@@ -2021,7 +2097,7 @@
 
   function loadLineups(){
     try{
-      var raw = localStorage.getItem(LINEUP_KEY);
+      var raw = localStorage.getItem(STORE_KEYS.lineups);
       if(raw) return JSON.parse(raw);
     }catch(e){ /* fall through */ }
     if(!localStorage.getItem('kbo_lineups_seeded')){
@@ -2044,13 +2120,13 @@
         teamAId: teamA ? teamA.id : '', teamBId: teamB ? teamB.id : '',
         teamASlots: slotsA, teamBSlots: slotsB
       };
-      localStorage.setItem(LINEUP_KEY, JSON.stringify([seedLineup]));
+      localStorage.setItem(STORE_KEYS.lineups, JSON.stringify([seedLineup]));
       return [seedLineup];
     }
     return [];
   }
 
-  function saveLineups(){ localStorage.setItem(LINEUP_KEY, JSON.stringify(state.lineups)); }
+  function saveLineups(){ localStorage.setItem(STORE_KEYS.lineups, JSON.stringify(state.lineups)); }
 
   function getActiveLineup(){
     return state.lineups.filter(function(l){ return l.id === state.activeLineupId; })[0] || null;
