@@ -2809,11 +2809,27 @@
     var avgCol = SCHEMA.batters.columns.filter(function(c){ return c.key === 'avg'; })[0];
     var obpCol = SCHEMA.batters.columns.filter(function(c){ return c.key === 'obp'; })[0];
 
+    // Group by team name with whitespace ignored, so "꾸러기 수비대" and
+    // "꾸러기수비대" (e.g. from an older import) are treated as the same team.
+    function teamGroupKey(name){ return (name || '').replace(/\s+/g, ''); }
+
+    var canonicalTeamName = {};
+    var teamPhotoByGroupKey = {};
+    state.teams.forEach(function(t){
+      var gk = teamGroupKey(t.name);
+      canonicalTeamName[gk] = t.name;
+      teamPhotoByGroupKey[gk] = t.photo;
+    });
+
     var byTeam = {};
+    var rawNameByGroupKey = {};
     function ensureBucket(teamName){
-      var key = (teamName || '').trim() || '팀 미정';
-      if(!byTeam[key]) byTeam[key] = {};
-      return byTeam[key];
+      var gk = teamGroupKey(teamName) || '__unassigned__';
+      if(!byTeam[gk]){
+        byTeam[gk] = {};
+        rawNameByGroupKey[gk] = (teamName || '').trim() || '팀 미정';
+      }
+      return byTeam[gk];
     }
 
     battersAgg.forEach(function(r){
@@ -2831,23 +2847,21 @@
       if(r.photo) bucket[pkey].photo = r.photo;
     });
 
-    var orderedTeamNames = state.teams.map(function(t){ return t.name; });
+    var orderedGroupKeys = state.teams.map(function(t){ return teamGroupKey(t.name); });
     Object.keys(byTeam).forEach(function(k){
-      if(orderedTeamNames.indexOf(k) === -1) orderedTeamNames.push(k);
+      if(orderedGroupKeys.indexOf(k) === -1) orderedGroupKeys.push(k);
     });
 
-    var teamPhotoByName = {};
-    state.teams.forEach(function(t){ teamPhotoByName[t.name] = t.photo; });
-
     var anyData = false;
-    var html = orderedTeamNames.map(function(teamName){
-      var bucket = byTeam[teamName];
+    var html = orderedGroupKeys.map(function(gk){
+      var bucket = byTeam[gk];
       if(!bucket) return '';
       var players = Object.keys(bucket).map(function(k){ return bucket[k]; })
         .sort(function(a,b){ return a.name.localeCompare(b.name, 'ko'); });
       if(players.length === 0) return '';
       anyData = true;
-      var photo = teamPhotoByName[teamName];
+      var teamName = canonicalTeamName[gk] || rawNameByGroupKey[gk];
+      var photo = teamPhotoByGroupKey[gk];
       var rows = players.map(function(p){
         var stats = [];
         if(p.batter) stats.push('타율 ' + avg3(p.batter.avg) + ' · 출루 ' + avg3(p.batter.obp));
