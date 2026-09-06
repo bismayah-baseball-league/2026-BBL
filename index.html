@@ -2518,11 +2518,21 @@
       setTimeout(function(){ btn.textContent = original; }, 1500);
     });
 
+    function updateAvgCell(input){
+      if(!isAdminUnlocked()) return;
+      var row = input.closest('tr');
+      var cell = row ? row.querySelector('.lineup-avg-col') : null;
+      if(!cell) return;
+      var avgVal = getBatterAvgByName(input.value);
+      cell.textContent = avgVal === null ? '-' : avg3(avgVal);
+    }
+
     body.querySelectorAll('.team-a [data-slot-name]').forEach(function(input){
       input.addEventListener('input', function(){
         lu.teamASlots[Number(this.dataset.idx)].name = this.value;
         refreshFieldOnly(lu);
         updateDupHighlight(body.querySelector('.lineup-card.team-a'), lu.teamASlots);
+        updateAvgCell(this);
       });
     });
     body.querySelectorAll('.team-a [data-slot-pos]').forEach(function(sel){
@@ -2536,6 +2546,7 @@
         lu.teamBSlots[Number(this.dataset.idx)].name = this.value;
         refreshFieldOnly(lu);
         updateDupHighlight(body.querySelector('.lineup-card.team-b'), lu.teamBSlots);
+        updateAvgCell(this);
       });
     });
     body.querySelectorAll('.team-b [data-slot-pos]').forEach(function(sel){
