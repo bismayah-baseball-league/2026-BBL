@@ -594,8 +594,8 @@
   .lineup-card.team-a .lineup-card-head{border-left:4px solid #6fae7c;}
   .lineup-card.team-b .lineup-card-head{border-left:4px solid #e0913f;}
 
-  .lineup-card-body{display:flex; flex-wrap:wrap; align-items:flex-start;}
-  .lineup-table-wrap{flex:0 0 190px; min-width:170px;}
+  .lineup-card-body{display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px;}
+  .lineup-table-wrap{flex:0 0 210px; min-width:190px;}
 
   .lineup-table{width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed;}
   .lineup-table th{
@@ -621,7 +621,7 @@
   }
 
   .field-inline{
-    flex:1 1 0; min-width:150px; align-self:stretch;
+    flex:1 1 0; min-width:150px; max-width:220px; align-self:stretch;
     padding:8px 10px 8px 10px; border-left:1px solid var(--line);
   }
   .field-inline h4{margin:0 0 5px; font-size:10px; color:var(--gold-deep); line-height:1.25;}
@@ -698,9 +698,6 @@
   <button class="tab-btn" data-tab="batters">타자 기록</button>
   <button class="tab-btn" data-tab="pitchers">투수 기록</button>
   <button class="tab-btn" data-tab="lineups">라인업</button>
-  <button type="button" class="admin-lock-btn backup-btn" id="backup-btn" title="모든 기록을 파일로 저장">⬇ 백업</button>
-  <button type="button" class="admin-lock-btn restore-btn" id="restore-btn" title="백업 파일에서 복원">⬆ 복원</button>
-  <input type="file" id="restore-file-input" accept="application/json" style="display:none;">
   <button type="button" class="admin-lock-btn" id="admin-lock-btn" title="관리자 모드">🔒 관리자</button>
 </nav>
 
@@ -1094,79 +1091,6 @@
     updateAdminLockUI();
   }
 
-  // ---------- BACKUP / RESTORE (전체 데이터 백업/복원) ----------
-  var BACKUP_KEYS = [
-    'kbo_batters','kbo_pitchers','kbo_teams',
-    'kbo_batter_profiles','kbo_pitcher_profiles',
-    'kbo_notices','kbo_game_results','kbo_lineups','kbo_club_info',
-    'kbo_teams_seeded','kbo_batters_seeded','kbo_pitchers_seeded','kbo_lineups_seeded'
-  ];
-
-  function exportBackup(){
-    var data = {};
-    BACKUP_KEYS.forEach(function(k){
-      var v = localStorage.getItem(k);
-      if(v !== null) data[k] = v;
-    });
-    var payload = { exportedAt: new Date().toISOString(), data: data };
-    var blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    var stamp = new Date().toISOString().slice(0,10);
-    a.href = url;
-    a.download = 'BBL_backup_' + stamp + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  }
-
-  function importBackup(file){
-    var reader = new FileReader();
-    reader.onload = function(e){
-      var parsed;
-      try{
-        parsed = JSON.parse(e.target.result);
-      }catch(err){
-        alert('백업 파일을 읽는 중 문제가 발생했습니다.');
-        return;
-      }
-      var data = parsed && parsed.data ? parsed.data : parsed;
-      if(!data || typeof data !== 'object'){
-        alert('올바른 백업 파일이 아닙니다.');
-        return;
-      }
-      if(!confirm('현재 브라우저에 저장된 모든 기록을 백업 파일 내용으로 덮어씁니다. 계속할까요?')) return;
-      Object.keys(data).forEach(function(k){
-        if(BACKUP_KEYS.indexOf(k) !== -1){
-          localStorage.setItem(k, data[k]);
-        }
-      });
-      alert('복원이 완료되었습니다. 페이지를 새로고침합니다.');
-      location.reload();
-    };
-    reader.readAsText(file);
-  }
-
-  var backupBtn = document.getElementById('backup-btn');
-  if(backupBtn){
-    backupBtn.addEventListener('click', function(){ exportBackup(); });
-  }
-  var restoreBtn = document.getElementById('restore-btn');
-  var restoreFileInput = document.getElementById('restore-file-input');
-  if(restoreBtn && restoreFileInput){
-    restoreBtn.addEventListener('click', function(){
-      if(!ensureAdmin()) return;
-      restoreFileInput.value = '';
-      restoreFileInput.click();
-    });
-    restoreFileInput.addEventListener('change', function(){
-      var file = restoreFileInput.files[0];
-      if(!file) return;
-      importBackup(file);
-    });
-  }
-
   var STORE_KEYS = {
     batters:'kbo_batters', pitchers:'kbo_pitchers', teams:'kbo_teams',
     batterProfiles:'kbo_batter_profiles', pitcherProfiles:'kbo_pitcher_profiles',
@@ -1340,7 +1264,7 @@
     editing: null // {tab, id} or null when adding
   };
   state.lineups = loadLineups();
-  state.activeLineupId = state.lineups.length ? state.lineups[state.lineups.length - 1].id : null;
+  state.activeLineupId = pickDefaultLineupId();
 
   function save(tab){
     localStorage.setItem(STORE_KEYS[tab], JSON.stringify(state[tab]));
@@ -2297,6 +2221,16 @@
     remotePut(STORE_KEYS.lineups, state.lineups);
   }
 
+  function pickDefaultLineupId(){
+    if(!state.lineups.length) return null;
+    var today = new Date().toISOString().slice(0,10);
+    var upcoming = state.lineups.filter(function(l){ return l.date >= today; })
+      .sort(function(a,b){ return a.date.localeCompare(b.date); });
+    if(upcoming.length) return upcoming[0].id;
+    var past = state.lineups.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
+    return past[0].id;
+  }
+
   function getActiveLineup(){
     return state.lineups.filter(function(l){ return l.id === state.activeLineupId; })[0] || null;
   }
@@ -2444,8 +2378,8 @@
 
     var lu = getActiveLineup();
     if(!lu){
-      lu = state.lineups[state.lineups.length - 1];
-      state.activeLineupId = lu.id;
+      state.activeLineupId = pickDefaultLineupId();
+      lu = getActiveLineup();
     }
 
     var teamA = teamById(lu.teamAId), teamB = teamById(lu.teamBId);
@@ -2455,7 +2389,6 @@
     var html = '<div class="lineup-head"><div class="field"><label>경기 날짜</label>' +
       '<input type="date" id="lineup-date" value="' + lu.date + '"></div>' +
       '<button type="button" class="btn btn-ghost" id="swap-home-away">⇄ 홈/원정 전환</button>' +
-      '<button type="button" class="btn btn-ghost" id="copy-lineup">📋 라인업 복사</button>' +
       '<button type="button" class="btn btn-gold" id="save-lineup">💾 저장</button></div>';
 
     html += '<div class="lineup-grid">';
@@ -2499,11 +2432,6 @@
       if(!ensureAdmin()) return;
       lu.home = (lu.home === 'A') ? 'B' : 'A';
       renderLineups();
-    });
-
-    document.getElementById('copy-lineup').addEventListener('click', function(){
-      var text = buildLineupText(lu, teamA, teamB, aIsHome);
-      copyTextToClipboard(text, this);
     });
 
     document.getElementById('save-lineup').addEventListener('click', function(){
@@ -2597,7 +2525,7 @@
     if(!lu) return;
     if(!confirm(lu.date + ' 라인업을 삭제할까요?')) return;
     state.lineups = state.lineups.filter(function(l){ return l.id !== lu.id; });
-    state.activeLineupId = state.lineups.length ? state.lineups[state.lineups.length - 1].id : null;
+    state.activeLineupId = pickDefaultLineupId();
     saveLineups();
     renderLineups();
   });
@@ -2737,10 +2665,8 @@
   }
 
   function initCalendarMonth(){
-    var dates = getAllGameDates();
-    var base = dates.length ? dates[dates.length - 1] : new Date().toISOString().slice(0,10);
-    var parts = base.split('-');
-    return { year: Number(parts[0]), month: Number(parts[1]) - 1 };
+    var today = new Date();
+    return { year: today.getFullYear(), month: today.getMonth() };
   }
   state.calendar = initCalendarMonth();
   state.calendarSelected = null;
@@ -2879,37 +2805,10 @@
       return;
     }
 
-    // Upcoming date: show home/away matchup from the scheduled lineup
+    // Upcoming date with an existing lineup: intentionally show nothing.
     if(lineupsForDate.length){
-      var lu = lineupsForDate[0];
-      if(!lu.home) lu.home = 'A';
-      var homeId = lu.home === 'A' ? lu.teamAId : lu.teamBId;
-      var awayId = lu.home === 'A' ? lu.teamBId : lu.teamAId;
-      var homeTeam = teamById(homeId), awayTeam = teamById(awayId);
-
-      function sideHtml(team, label, cls){
-        return '<div class="cd-side">' +
-          (team && team.photo ? '<img src="' + team.photo + '" alt="">' : '') +
-          '<span class="cd-name">' + (team ? escapeHtml(team.name) : '미정') + '</span>' +
-          '<span class="home-away-badge ' + cls + '" style="margin-left:0;">' + label + '</span>' +
-        '</div>';
-      }
-
-      calDetail.innerHTML =
-        '<h4>' + dateStr + ' 예정 경기</h4>' +
-        '<div class="cd-matchup">' +
-          sideHtml(homeTeam, '홈', 'home') +
-          '<span class="cd-vs">VS</span>' +
-          sideHtml(awayTeam, '원정', 'away') +
-        '</div>' +
-        '<div class="cd-actions"><button type="button" class="btn btn-ghost" id="cd-go-lineup">라인업 보기</button></div>';
-      calDetail.style.display = '';
-
-      document.getElementById('cd-go-lineup').addEventListener('click', function(){
-        switchToTab('lineups');
-        state.activeLineupId = lu.id;
-        renderLineups();
-      });
+      calDetail.innerHTML = '';
+      calDetail.style.display = 'none';
     } else {
       calDetail.innerHTML =
         '<h4>' + dateStr + '</h4>' +
