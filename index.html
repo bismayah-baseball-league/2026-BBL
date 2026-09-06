@@ -608,8 +608,9 @@
     text-align:center; font-family:'Black Han Sans',sans-serif;
     color:var(--gold-deep); font-size:12px;
   }
-  .lineup-table th:nth-child(2), .lineup-table td:nth-child(2){width:76px;}
-  .lineup-table th:nth-child(3), .lineup-table td:nth-child(3){width:60px;}
+  .lineup-table th.lineup-name-col, .lineup-table td.lineup-name-col{width:76px;}
+  .lineup-table th.lineup-pos-col, .lineup-table td.lineup-pos-col{width:60px;}
+  .lineup-table th.lineup-avg-col, .lineup-table td.lineup-avg-col{width:44px; text-align:center; color:var(--gold-deep); font-weight:700;}
   .lineup-table input[type=text]{width:100%; padding:3px 5px; font-size:12.5px;}
   .lineup-table select{width:100%; padding:3px 1px; font-size:10.5px;}
   .team-a .lineup-table td.order{color:#4f9d63;}
@@ -1084,9 +1085,10 @@
         if(confirm('관리자 모드를 해제할까요?')){
           localStorage.removeItem(ADMIN_KEY);
           updateAdminLockUI();
+          if(typeof renderLineups === 'function') renderLineups();
         }
       } else {
-        ensureAdmin();
+        if(ensureAdmin() && typeof renderLineups === 'function') renderLineups();
       }
     });
     updateAdminLockUI();
@@ -1360,6 +1362,7 @@
       }
       if(state.activeTab === 'roster' && typeof renderRoster === 'function') renderRoster();
       if(state.activeTab === 'teams' && typeof renderGameResults === 'function') renderGameResults();
+      if(state.activeTab === 'lineups' && typeof renderLineups === 'function') renderLineups();
     });
   });
 
@@ -2314,7 +2317,18 @@
     }).join('');
   }
 
+  function getBatterAvgByName(name){
+    var key = (name || '').trim().toLowerCase();
+    if(!key) return null;
+    var rows = aggregateRows('batters');
+    var row = rows.filter(function(r){ return r.id === key; })[0];
+    if(!row) return null;
+    var avgCol = SCHEMA.batters.columns.filter(function(c){ return c.key === 'avg'; })[0];
+    return avgCol.compute(row);
+  }
+
   function renderLineupTableHtml(slots){
+    var showAvg = isAdminUnlocked();
     var nameCounts = {};
     slots.forEach(function(s){
       var n = (s.name || '').trim();
@@ -2328,13 +2342,20 @@
       }).join('');
       var trimmed = (slot.name || '').trim();
       var isDup = trimmed && nameCounts[trimmed.toLowerCase()] > 1;
+      var avgCell = '';
+      if(showAvg){
+        var avgVal = getBatterAvgByName(slot.name);
+        avgCell = '<td class="num lineup-avg-col">' + (avgVal === null ? '-' : avg3(avgVal)) + '</td>';
+      }
       return '<tr' + (isDup ? ' class="dup-row"' : '') + '>' +
         '<td class="order">' + (idx + 1) + '</td>' +
-        '<td><input type="text" data-slot-name data-idx="' + idx + '" value="' + escapeHtml(slot.name) + '" placeholder="이름"' + (isDup ? ' title="같은 이름이 중복 입력되었습니다"' : '') + '></td>' +
-        '<td><select data-slot-pos data-idx="' + idx + '">' + posOptions + '</select></td>' +
+        '<td class="lineup-name-col"><input type="text" data-slot-name data-idx="' + idx + '" value="' + escapeHtml(slot.name) + '" placeholder="이름"' + (isDup ? ' title="같은 이름이 중복 입력되었습니다"' : '') + '></td>' +
+        avgCell +
+        '<td class="lineup-pos-col"><select data-slot-pos data-idx="' + idx + '">' + posOptions + '</select></td>' +
       '</tr>';
     }).join('');
-    return '<table class="lineup-table"><thead><tr><th>타순</th><th>이름</th><th>포지션</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    var avgHeader = showAvg ? '<th class="num lineup-avg-col" title="관리자 전용 - 개인 타율">타율</th>' : '';
+    return '<table class="lineup-table"><thead><tr><th>타순</th><th class="lineup-name-col">이름</th>' + avgHeader + '<th class="lineup-pos-col">포지션</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
   function buildFieldSVG(slots, teamClass){
