@@ -2364,10 +2364,10 @@
     }
   }
 
-  function renderLineups(){
+  function renderLineups(skipSelectRefresh){
     var emptyEl = document.getElementById('empty-lineups');
     var body = document.getElementById('lineup-body');
-    populateLineupSelect();
+    if(!skipSelectRefresh) populateLineupSelect();
 
     if(state.lineups.length === 0){
       body.innerHTML = '';
@@ -2419,7 +2419,18 @@
     body.innerHTML = html;
 
     document.getElementById('lineup-date').addEventListener('change', function(){
-      lu.date = this.value;
+      var newDate = this.value;
+      if(newDate === lu.date) return;
+      var existing = state.lineups.filter(function(l){ return l.date === newDate && l.id !== lu.id; })[0];
+      if(existing){
+        state.activeLineupId = existing.id;
+        renderLineups();
+      } else {
+        lu.date = newDate;
+        lu.teamASlots = emptySlots();
+        lu.teamBSlots = emptySlots();
+        renderLineups(true);
+      }
     });
     document.getElementById('lineup-teamA').addEventListener('change', function(){
       lu.teamAId = this.value; renderLineups();
@@ -2804,10 +2815,18 @@
       return;
     }
 
-    // Upcoming date with an existing lineup: intentionally show nothing.
+    // Upcoming date with an existing lineup: just a simple button, no matchup card.
     if(lineupsForDate.length){
-      calDetail.innerHTML = '';
-      calDetail.style.display = 'none';
+      var luForDate = lineupsForDate[0];
+      calDetail.innerHTML =
+        '<div class="cd-actions"><button type="button" class="btn btn-gold" id="cd-go-lineup">라인업 보기</button></div>';
+      calDetail.style.display = '';
+
+      document.getElementById('cd-go-lineup').addEventListener('click', function(){
+        switchToTab('lineups');
+        state.activeLineupId = luForDate.id;
+        renderLineups();
+      });
     } else {
       calDetail.innerHTML =
         '<h4>' + dateStr + '</h4>' +
