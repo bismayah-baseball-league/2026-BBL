@@ -627,6 +627,14 @@
   .field-inline h4{margin:0 0 5px; font-size:11px; color:var(--gold-deep); line-height:1.25;}
   .field-inline .field-photo{max-width:100%; margin:0;}
 
+  .jersey-legend{
+    margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink);
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:8px;
+    padding:8px 12px;
+  }
+  .jersey-legend .jl-home{color:#c96f1c;}
+  .jersey-legend .jl-away{color:#5c6570;}
+
   .field-photo{position:relative; width:100%; border-radius:6px; overflow:hidden; line-height:0;}
   .field-photo img{width:100%; display:block;}
   .field-chip{
@@ -2400,7 +2408,8 @@
       '<div class="lineup-card-body">' +
         '<div class="lineup-table-wrap">' + renderLineupTableHtml(lu.teamASlots) + '</div>' +
         '<div class="field-inline"><h4>' + (teamA ? escapeHtml(teamA.name) : 'A팀') + ' 수비 위치</h4>' +
-        '<div id="field-diagram-a">' + buildFieldSVG(lu.teamASlots, 'team-a') + '</div></div>' +
+        '<div id="field-diagram-a">' + buildFieldSVG(lu.teamASlots, 'team-a') + '</div>' +
+        '<div class="jersey-legend">👕 유니폼 색<br>3루측 더그아웃 = <b class="jl-home">홈 (주황색 유니폼)</b> · 1루측 더그아웃 = <b class="jl-away">어웨이 (회색 유니폼)</b></div></div>' +
       '</div>' +
       '</div>';
     html += '<div class="lineup-card team-b"><div class="lineup-card-head">' +
@@ -2411,7 +2420,8 @@
       '<div class="lineup-card-body">' +
         '<div class="lineup-table-wrap">' + renderLineupTableHtml(lu.teamBSlots) + '</div>' +
         '<div class="field-inline"><h4>' + (teamB ? escapeHtml(teamB.name) : 'B팀') + ' 수비 위치</h4>' +
-        '<div id="field-diagram-b">' + buildFieldSVG(lu.teamBSlots, 'team-b') + '</div></div>' +
+        '<div id="field-diagram-b">' + buildFieldSVG(lu.teamBSlots, 'team-b') + '</div>' +
+        '<div class="jersey-legend">👕 유니폼 색<br>3루측 더그아웃 = <b class="jl-home">홈 (주황색 유니폼)</b> · 1루측 더그아웃 = <b class="jl-away">어웨이 (회색 유니폼)</b></div></div>' +
       '</div>' +
       '</div>';
     html += '</div>';
