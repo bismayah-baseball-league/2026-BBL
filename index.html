@@ -412,7 +412,7 @@
 
   .home-away-badge{
     margin-left:auto; padding:3px 10px; border-radius:999px;
-    font-size:11px; font-weight:700; color:#fff; flex-shrink:0;
+    font-size:11px; font-weight:700; color:#fff; flex-shrink:0; white-space:nowrap;
   }
   .home-away-badge.home{background:#e0913f;}
   .home-away-badge.away{background:#8a8f9c;}
@@ -621,10 +621,10 @@
   }
 
   .field-inline{
-    flex:1 1 0; min-width:150px; max-width:220px; align-self:stretch;
+    flex:1 1 0; min-width:260px; max-width:440px; align-self:stretch;
     padding:8px 10px 8px 10px; border-left:1px solid var(--line);
   }
-  .field-inline h4{margin:0 0 5px; font-size:10px; color:var(--gold-deep); line-height:1.25;}
+  .field-inline h4{margin:0 0 5px; font-size:11px; color:var(--gold-deep); line-height:1.25;}
   .field-inline .field-photo{max-width:100%; margin:0;}
 
   .field-photo{position:relative; width:100%; border-radius:6px; overflow:hidden; line-height:0;}
@@ -2395,7 +2395,7 @@
     html += '<div class="lineup-card team-a"><div class="lineup-card-head">' +
       (teamA && teamA.photo ? '<img src="' + teamA.photo + '" alt="">' : '<div class="avatar placeholder" style="width:34px;height:34px;">?</div>') +
       '<select id="lineup-teamA">' + teamOptionsHtml(lu.teamAId) + '</select>' +
-      '<span class="home-away-badge ' + (aIsHome ? 'home">홈' : 'away">원정') + '</span>' +
+      '<span class="home-away-badge ' + (aIsHome ? 'home">홈 (주황)' : 'away">원정 (회색)') + '</span>' +
       '</div>' +
       '<div class="lineup-card-body">' +
         '<div class="lineup-table-wrap">' + renderLineupTableHtml(lu.teamASlots) + '</div>' +
@@ -2406,7 +2406,7 @@
     html += '<div class="lineup-card team-b"><div class="lineup-card-head">' +
       (teamB && teamB.photo ? '<img src="' + teamB.photo + '" alt="">' : '<div class="avatar placeholder" style="width:34px;height:34px;">?</div>') +
       '<select id="lineup-teamB">' + teamOptionsHtml(lu.teamBId) + '</select>' +
-      '<span class="home-away-badge ' + (!aIsHome ? 'home">홈' : 'away">원정') + '</span>' +
+      '<span class="home-away-badge ' + (!aIsHome ? 'home">홈 (주황)' : 'away">원정 (회색)') + '</span>' +
       '</div>' +
       '<div class="lineup-card-body">' +
         '<div class="lineup-table-wrap">' + renderLineupTableHtml(lu.teamBSlots) + '</div>' +
