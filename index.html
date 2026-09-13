@@ -2372,6 +2372,13 @@
     }
   }
 
+  function jerseyLegendHtml(isHome){
+    if(isHome){
+      return '<div class="jersey-legend">👕 유니폼 색: <b class="jl-home">주황색</b> (3루측 더그아웃)</div>';
+    }
+    return '<div class="jersey-legend">👕 유니폼 색: <b class="jl-away">회색</b> (1루측 더그아웃)</div>';
+  }
+
   function renderLineups(skipSelectRefresh){
     var emptyEl = document.getElementById('empty-lineups');
     var body = document.getElementById('lineup-body');
@@ -2409,7 +2416,7 @@
         '<div class="lineup-table-wrap">' + renderLineupTableHtml(lu.teamASlots) + '</div>' +
         '<div class="field-inline"><h4>' + (teamA ? escapeHtml(teamA.name) : 'A팀') + ' 수비 위치</h4>' +
         '<div id="field-diagram-a">' + buildFieldSVG(lu.teamASlots, 'team-a') + '</div>' +
-        '<div class="jersey-legend">👕 유니폼 색<br>3루측 더그아웃 = <b class="jl-home">홈 (주황색 유니폼)</b> · 1루측 더그아웃 = <b class="jl-away">어웨이 (회색 유니폼)</b></div></div>' +
+        jerseyLegendHtml(aIsHome) + '</div>' +
       '</div>' +
       '</div>';
     html += '<div class="lineup-card team-b"><div class="lineup-card-head">' +
@@ -2421,7 +2428,7 @@
         '<div class="lineup-table-wrap">' + renderLineupTableHtml(lu.teamBSlots) + '</div>' +
         '<div class="field-inline"><h4>' + (teamB ? escapeHtml(teamB.name) : 'B팀') + ' 수비 위치</h4>' +
         '<div id="field-diagram-b">' + buildFieldSVG(lu.teamBSlots, 'team-b') + '</div>' +
-        '<div class="jersey-legend">👕 유니폼 색<br>3루측 더그아웃 = <b class="jl-home">홈 (주황색 유니폼)</b> · 1루측 더그아웃 = <b class="jl-away">어웨이 (회색 유니폼)</b></div></div>' +
+        jerseyLegendHtml(!aIsHome) + '</div>' +
       '</div>' +
       '</div>';
     html += '</div>';
